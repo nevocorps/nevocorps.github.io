@@ -1,4 +1,4 @@
-<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><link rel="icon" type="image/png" href="favicon.png"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <title>NevoCorps</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;500;600&family=Hanken+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
@@ -290,9 +290,10 @@ footer{padding:34px 0 calc(34px + env(safe-area-inset-bottom,0px));font:400 12px
     var name = document.getElementById('f-name').value.trim() || 'Not given';
     var when = document.getElementById('f-when').value;
     var text = document.getElementById('f-text').value.trim() || 'Not given';
-    document.getElementById('brief-text').textContent =
-      'NevoCorps project brief\nName: '+name+'\nBuild: '+(kinds.join(', ')||'Not chosen')+'\nTimeline: '+when+'\n\n'+text;
+    var brief = 'NevoCorps project brief\nName: '+name+'\nBuild: '+(kinds.join(', ')||'Not chosen')+'\nTimeline: '+when+'\n\n'+text;
+    document.getElementById('brief-text').textContent = brief;
     out.hidden = false;
+    window.open('https://wa.me/919995447564?text='+encodeURIComponent(brief),'_blank','noopener,noreferrer');
   });
   document.getElementById('copy').addEventListener('click',function(){
     var t = document.getElementById('brief-text').textContent, note = document.getElementById('copy-note');
