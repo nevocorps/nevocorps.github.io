@@ -1,0 +1,594 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>NevoCorps</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;500;600&family=Hanken+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout concept: a fixed WebGL particle body morphs from shape to shape as you scroll, always sitting opposite the copy. Committed dark look. */
+:root{
+  --bg:#080a0f;
+  --bg-2:#0e1219;
+  --fg:#e9ecf1;
+  --mute:#8d96a7;
+  --line:rgba(233,236,241,.13);
+  --accent:#6ee7d4;
+  --warm:#ffb072;
+  --f-display:"Unbounded","Arial Black",system-ui,sans-serif;
+  --f-body:"Hanken Grotesk",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+  --gut:max(16px,env(safe-area-inset-left,0px));
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0;background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:17px;line-height:1.6;
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+  overflow-x:hidden;
+}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:60;background:var(--bg)}
+#gl{position:fixed;inset:0;width:100%;height:100%;z-index:0;display:block;pointer-events:none}
+.no-gl #gl{display:none}
+.no-gl body{background:radial-gradient(60% 50% at 70% 40%,#16322f 0%,var(--bg) 70%)}
+.veil{position:fixed;inset:0;z-index:1;pointer-events:none;background:
+  radial-gradient(90% 70% at 50% 110%,rgba(8,10,15,.85),transparent 60%),
+  radial-gradient(70% 50% at 50% -10%,rgba(8,10,15,.7),transparent 60%)}
+main,header,footer{position:relative;z-index:2}
+a{color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:4px}
+
+/* progress + nav */
+.bar{position:fixed;left:0;top:env(safe-area-inset-top,0px);height:2px;width:100%;transform-origin:0 50%;transform:scaleX(0);background:linear-gradient(90deg,var(--accent),var(--warm));z-index:70}
+header{position:fixed;left:0;right:0;top:env(safe-area-inset-top,0px);z-index:65;
+  padding:14px max(16px,env(safe-area-inset-right,0px)) 14px max(16px,env(safe-area-inset-left,0px));
+  display:flex;align-items:center;justify-content:space-between;gap:16px;
+  background:linear-gradient(var(--bg) 20%,transparent)}
+.logo{display:flex;align-items:center;gap:10px;text-decoration:none;font-family:var(--f-display);font-weight:500;font-size:14px;letter-spacing:.14em}
+.logo i{width:22px;height:22px;border:1.5px solid var(--accent);border-radius:6px;transform:rotate(45deg);position:relative;display:block}
+.logo i::after{content:"";position:absolute;inset:4px;background:var(--warm);border-radius:2px}
+nav{display:flex;align-items:center;gap:26px;font-family:var(--f-mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase}
+nav a{text-decoration:none;color:var(--mute);transition:color .2s}
+nav a:hover{color:var(--fg)}
+.btn{display:inline-flex;align-items:center;gap:10px;padding:13px 22px;border-radius:999px;border:1px solid var(--accent);background:transparent;color:var(--fg);
+  font:500 13px/1 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;text-decoration:none;cursor:pointer;transition:background .25s,color .25s,transform .15s}
+.btn:hover{background:var(--accent);color:#06130f}
+.btn.solid{background:var(--accent);color:#06130f}
+.btn.solid:hover{background:var(--fg);border-color:var(--fg)}
+.dots{position:fixed;right:max(14px,env(safe-area-inset-right,0px));top:50%;transform:translateY(-50%);z-index:65;display:flex;flex-direction:column;gap:14px}
+.dots a{width:9px;height:9px;border-radius:50%;border:1px solid var(--mute);display:block;transition:all .3s}
+.dots a.on{background:var(--accent);border-color:var(--accent);transform:scale(1.4)}
+
+/* panels */
+.panel{min-height:92vh;display:flex;align-items:center;padding-block:clamp(84px,12vh,130px)}
+.wrap{width:100%;max-width:1240px;margin:0 auto}
+.copy{max-width:35rem;will-change:transform,opacity}
+.side-r .copy{margin-left:auto}
+.side-c .copy{margin:0 auto;max-width:44rem}
+.eyebrow{font:500 12px/1.4 var(--f-mono);letter-spacing:.16em;text-transform:uppercase;color:var(--accent);margin:0 0 20px}
+h1,h2{font-family:var(--f-display);font-weight:500;line-height:1.08;letter-spacing:-.02em;margin:0 0 24px;text-wrap:balance}
+h1{font-size:clamp(34px,6.2vw,76px)}
+h2{font-size:clamp(28px,4.2vw,52px)}
+h1 em,h2 em{font-style:normal;background:linear-gradient(95deg,var(--accent),var(--warm));-webkit-background-clip:text;background-clip:text;color:transparent}
+p{margin:0 0 20px;color:#c3c9d4;max-width:34rem}
+.lead{font-size:clamp(18px,1.6vw,21px);color:#d4d9e2}
+.cta-row{display:flex;flex-wrap:wrap;gap:14px;margin-top:30px}
+ul.ship{list-style:none;margin:26px 0 0;padding:0;display:grid;gap:0;border-top:1px solid var(--line)}
+ul.ship li{display:flex;justify-content:space-between;gap:18px;padding:13px 0;border-bottom:1px solid var(--line);font-size:15px;color:#d4d9e2}
+ul.ship li span{font:400 12px/1.7 var(--f-mono);color:var(--mute);text-align:right;letter-spacing:.04em}
+.tags{display:flex;flex-wrap:wrap;gap:8px;margin-top:24px}
+.tags span{font:400 12px/1 var(--f-mono);padding:8px 12px;border:1px solid var(--line);border-radius:999px;color:var(--mute);background:rgba(8,10,15,.55);transition:color .2s,border-color .2s}
+.tags span:hover{color:var(--accent);border-color:var(--accent)}
+.hint{position:absolute;left:var(--gut);bottom:28px;font:400 11px/1 var(--f-mono);letter-spacing:.16em;text-transform:uppercase;color:var(--mute);display:flex;align-items:center;gap:12px}
+.hint b{display:block;width:1px;height:34px;background:linear-gradient(var(--accent),transparent);animation:drip 2s ease-in-out infinite;transform-origin:top}
+@keyframes drip{0%{transform:scaleY(0)}60%{transform:scaleY(1)}100%{transform:scaleY(1);opacity:0}}
+#hero{position:relative}
+
+/* marquee */
+.ticker{position:relative;z-index:2;overflow:hidden;border-block:1px solid var(--line);margin-inline:calc(-1 * max(16px,env(safe-area-inset-left,0px)));background:rgba(8,10,15,.72);backdrop-filter:blur(6px)}
+.ticker div{display:flex;gap:46px;width:max-content;padding:16px 0;animation:slide 38s linear infinite;font:400 13px/1 var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--mute)}
+.ticker span::before{content:"+";color:var(--accent);margin-right:46px}
+@keyframes slide{to{transform:translateX(-50%)}}
+
+/* process */
+.steps{display:grid;gap:12px;margin-top:28px;perspective:900px}
+.step{display:grid;grid-template-columns:auto 1fr;gap:6px 18px;padding:18px 20px;border:1px solid var(--line);border-radius:14px;background:rgba(14,18,25,.78);backdrop-filter:blur(8px);transition:transform .2s ease-out,border-color .25s;transform-style:preserve-3d}
+.step:hover{border-color:var(--accent)}
+.step .n{grid-row:span 2;font:500 13px/1.6 var(--f-mono);color:var(--accent);padding-top:3px}
+.step h3{margin:0;font:500 16px/1.4 var(--f-display);letter-spacing:-.01em}
+.step p{margin:0;font-size:15px;color:var(--mute)}
+
+/* contact */
+form{display:grid;gap:18px;margin-top:30px;text-align:left}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+label,.lab{font:500 11px/1 var(--f-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--mute);display:block;margin-bottom:9px}
+input,textarea,select{width:100%;padding:14px 16px;border-radius:12px;border:1px solid var(--line);background:rgba(14,18,25,.85);color:var(--fg);font:400 16px/1.4 var(--f-body);transition:border-color .2s}
+input:focus,textarea:focus,select:focus{border-color:var(--accent);outline:none}
+textarea{min-height:120px;resize:vertical}
+.chips{display:flex;flex-wrap:wrap;gap:10px}
+.chip{padding:11px 16px;border-radius:999px;border:1px solid var(--line);background:rgba(14,18,25,.85);color:var(--mute);font:400 13px/1 var(--f-mono);cursor:pointer;transition:all .2s}
+.chip[aria-pressed="true"]{border-color:var(--accent);background:rgba(110,231,212,.14);color:var(--fg)}
+.out{margin-top:8px;padding:18px;border:1px dashed var(--accent);border-radius:14px;background:rgba(14,18,25,.9)}
+.out pre{margin:0 0 14px;white-space:pre-wrap;word-break:break-word;font:400 13px/1.7 var(--f-mono);color:#d4d9e2}
+.out p{font-size:14px;color:var(--mute);margin:12px 0 0}
+footer{padding:34px 0 calc(34px + env(safe-area-inset-bottom,0px));font:400 12px/1.6 var(--f-mono);color:var(--mute);letter-spacing:.06em;display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;border-top:1px solid var(--line)}
+
+@media (max-width:900px){
+  nav a.hide-m{display:none}
+  nav{gap:14px}
+  .dots{display:none}
+  .copy{padding:22px;border-radius:18px;background:rgba(8,10,15,.62);backdrop-filter:blur(10px);border:1px solid var(--line)}
+  .side-r .copy{margin-left:0}
+  .row{grid-template-columns:1fr}
+  .panel{min-height:auto;padding-block:90px 50px}
+  .hint{display:none}
+}
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  .ticker div,.hint b{animation:none}
+}
+</style>
+
+<canvas id="gl" aria-hidden="true"></canvas>
+<div class="veil"></div>
+<div class="bar" id="bar"></div>
+
+<header>
+  <a class="logo" href="#hero" aria-label="NevoCorps home"><i></i>NEVOCORPS</a>
+  <nav>
+    <a class="hide-m" href="#web">Web</a>
+    <a class="hide-m" href="#android">Android</a>
+    <a class="hide-m" href="#bots">Bots</a>
+    <a class="hide-m" href="#automation">Automation</a>
+    <a class="hide-m" href="#process">Process</a>
+    <a class="btn" href="#contact" style="padding:10px 16px;font-size:11px">Start a project</a>
+  </nav>
+</header>
+
+<div class="dots" id="dots">
+  <a href="#hero" aria-label="Intro"></a><a href="#web" aria-label="Web apps"></a><a href="#android" aria-label="Android apps"></a><a href="#bots" aria-label="Bots"></a><a href="#automation" aria-label="Automation"></a><a href="#process" aria-label="Process"></a><a href="#contact" aria-label="Contact"></a>
+</div>
+
+<main>
+  <section class="panel side-l" id="hero" data-x="1">
+    <div class="wrap"><div class="copy">
+      <p class="eyebrow">Custom software for clients</p>
+      <h1>You bring the brief. We build the <em>thing.</em></h1>
+      <p class="lead">NevoCorps designs and ships custom web apps, Android apps, bots and automation for teams that need something built properly, not rented from a template.</p>
+      <div class="cta-row"><a class="btn solid" href="#contact">Start a project</a><a class="btn" href="#web">See what we build</a></div>
+    </div></div>
+    <div class="hint"><b></b>Scroll</div>
+  </section>
+
+  <div class="ticker" aria-hidden="true"><div>
+    <span>React</span><span>Next.js</span><span>Node.js</span><span>TypeScript</span><span>Python</span><span>PostgreSQL</span><span>Kotlin</span><span>Jetpack Compose</span><span>Discord</span><span>Telegram</span><span>Slack</span><span>Playwright</span><span>Docker</span>
+    <span>React</span><span>Next.js</span><span>Node.js</span><span>TypeScript</span><span>Python</span><span>PostgreSQL</span><span>Kotlin</span><span>Jetpack Compose</span><span>Discord</span><span>Telegram</span><span>Slack</span><span>Playwright</span><span>Docker</span>
+  </div></div>
+
+  <section class="panel side-r" id="web" data-x="-1">
+    <div class="wrap"><div class="copy">
+      <p class="eyebrow">Web apps</p>
+      <h2>Portals, dashboards and products that <em>hold up.</em></h2>
+      <p>Customer portals, internal tools, booking systems, MVPs for a new idea. Built on a stack your next developer will recognise, with the code handed over to you.</p>
+      <ul class="ship">
+        <li>Client and admin portals <span>auth, roles, audit log</span></li>
+        <li>Dashboards and reporting <span>live data, exports</span></li>
+        <li>SaaS MVPs <span>billing, onboarding</span></li>
+      </ul>
+      <div class="tags"><span>React</span><span>Next.js</span><span>Node</span><span>Postgres</span></div>
+    </div></div>
+  </section>
+
+  <section class="panel side-l" id="android" data-x="1">
+    <div class="wrap"><div class="copy">
+      <p class="eyebrow">Android apps</p>
+      <h2>Native apps that feel <em>made for the phone.</em></h2>
+      <p>Written in Kotlin with Jetpack Compose, tested on real devices and prepared for Play Store release, including listing assets and signing.</p>
+      <ul class="ship">
+        <li>Field and delivery apps <span>offline-first, sync</span></li>
+        <li>Companion apps for your service <span>push, deep links</span></li>
+        <li>Play Store release <span>signing, staged rollout</span></li>
+      </ul>
+      <div class="tags"><span>Kotlin</span><span>Compose</span><span>Room</span><span>Firebase</span></div>
+    </div></div>
+  </section>
+
+  <section class="panel side-r" id="bots" data-x="-1">
+    <div class="wrap"><div class="copy">
+      <p class="eyebrow">Bots</p>
+      <h2>Assistants that work in the <em>channels you use.</em></h2>
+      <p>Support bots, order bots, moderation and community tools for Discord, Telegram, Slack and WhatsApp, wired to your own data and rules.</p>
+      <ul class="ship">
+        <li>Customer support and FAQ <span>handoff to humans</span></li>
+        <li>Orders, bookings, reminders <span>payments, calendars</span></li>
+        <li>Community and moderation <span>roles, logs, commands</span></li>
+      </ul>
+      <div class="tags"><span>Discord</span><span>Telegram</span><span>Slack</span><span>WhatsApp</span></div>
+    </div></div>
+  </section>
+
+  <section class="panel side-l" id="automation" data-x="1">
+    <div class="wrap"><div class="copy">
+      <p class="eyebrow">Automation</p>
+      <h2>Take the repetitive work <em>off your team.</em></h2>
+      <p>Scrapers, invoice and report pipelines, data syncs between the tools you already pay for. Each job runs on a schedule, logs what it did and tells you when it fails.</p>
+      <ul class="ship">
+        <li>Data collection and scraping <span>scheduled, monitored</span></li>
+        <li>Document and invoice flows <span>PDF, email, sheets</span></li>
+        <li>API integrations <span>webhooks, retries</span></li>
+      </ul>
+      <div class="tags"><span>Python</span><span>Playwright</span><span>Cron</span><span>Webhooks</span></div>
+    </div></div>
+  </section>
+
+  <section class="panel side-r" id="process" data-x="-1">
+    <div class="wrap"><div class="copy">
+      <p class="eyebrow">How a project runs</p>
+      <h2>Four steps, <em>no surprises.</em></h2>
+      <div class="steps">
+        <div class="step"><span class="n">01</span><h3>Brief</h3><p>You describe the problem. We ask the questions that change the scope.</p></div>
+        <div class="step"><span class="n">02</span><h3>Scope and quote</h3><p>A written scope, a fixed price and a delivery date before any code.</p></div>
+        <div class="step"><span class="n">03</span><h3>Build in weekly drops</h3><p>A working version you can click through every week, so changes are cheap.</p></div>
+        <div class="step"><span class="n">04</span><h3>Handover</h3><p>Source code, documentation, deployment and a walkthrough. It is yours.</p></div>
+      </div>
+    </div></div>
+  </section>
+
+  <section class="panel side-c" id="contact" data-x="0">
+    <div class="wrap"><div class="copy">
+      <p class="eyebrow" style="text-align:center">Start a project</p>
+      <h2 style="text-align:center">Tell us what to <em>build.</em></h2>
+      <form id="brief" novalidate>
+        <div><span class="lab">What do you need</span>
+          <div class="chips" id="chips">
+            <button type="button" class="chip" aria-pressed="true">Web app</button>
+            <button type="button" class="chip" aria-pressed="false">Android app</button>
+            <button type="button" class="chip" aria-pressed="false">Bot</button>
+            <button type="button" class="chip" aria-pressed="false">Automation</button>
+          </div></div>
+        <div class="row">
+          <div><label for="f-name">Your name</label><input id="f-name" autocomplete="name" placeholder="Enter your name"></div>
+          <div><label for="f-when">Timeline</label>
+            <select id="f-when"><option>Within a month</option><option>1 to 3 months</option><option>Flexible</option></select></div>
+        </div>
+        <div><label for="f-text">The brief</label><textarea id="f-text" placeholder="What does it do, who uses it, and what does it connect to?"></textarea></div>
+        <button class="btn solid" type="submit" style="justify-self:start">Write my brief</button>
+      </form>
+      <div class="out" id="out" hidden>
+        <pre id="brief-text"></pre>
+        <button class="btn" type="button" id="copy">Copy brief</button>
+        <p id="copy-note">Copy this brief and send it to the NevoCorps team to get your scope and quote.</p>
+      </div>
+    </div></div>
+  </section>
+</main>
+
+<footer><span>NevoCorps. Custom web apps, Android apps, bots and automation.</span><span>&copy; 2026 NevoCorps</span></footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+  var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var panels = Array.prototype.slice.call(document.querySelectorAll('.panel'));
+  var copies = panels.map(function(p){return p.querySelector('.copy');});
+  var dotEls = Array.prototype.slice.call(document.querySelectorAll('#dots a'));
+  var bar = document.getElementById('bar');
+  var xs = panels.map(function(p){return parseFloat(p.getAttribute('data-x'))||0;});
+
+  /* ---------- UI: copy fade, progress, dots ---------- */
+  function ease(t){return t*t*(3-2*t);}
+  function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
+
+  /* ---------- Form ---------- */
+  var chips = document.querySelectorAll('#chips .chip');
+  Array.prototype.forEach.call(chips,function(c){
+    c.addEventListener('click',function(){c.setAttribute('aria-pressed', c.getAttribute('aria-pressed')==='true'?'false':'true');});
+  });
+  var out = document.getElementById('out');
+  document.getElementById('brief').addEventListener('submit',function(e){
+    e.preventDefault();
+    var kinds = Array.prototype.filter.call(chips,function(c){return c.getAttribute('aria-pressed')==='true';}).map(function(c){return c.textContent;});
+    var name = document.getElementById('f-name').value.trim() || 'Not given';
+    var when = document.getElementById('f-when').value;
+    var text = document.getElementById('f-text').value.trim() || 'Not given';
+    document.getElementById('brief-text').textContent =
+      'NevoCorps project brief\nName: '+name+'\nBuild: '+(kinds.join(', ')||'Not chosen')+'\nTimeline: '+when+'\n\n'+text;
+    out.hidden = false;
+  });
+  document.getElementById('copy').addEventListener('click',function(){
+    var t = document.getElementById('brief-text').textContent, note = document.getElementById('copy-note');
+    function sel(){var r=document.createRange();r.selectNodeContents(document.getElementById('brief-text'));var s=getSelection();s.removeAllRanges();s.addRange(r);note.textContent='Select and copy the text above, then send it to the NevoCorps team.';}
+    try{ navigator.clipboard.writeText(t).then(function(){note.textContent='Copied. Send it to the NevoCorps team to get your scope and quote.';},sel);}catch(err){sel();}
+  });
+
+  /* tilt on process steps */
+  Array.prototype.forEach.call(document.querySelectorAll('.step'),function(el){
+    el.addEventListener('pointermove',function(e){
+      if(reduce) return;
+      var r=el.getBoundingClientRect(),x=(e.clientX-r.left)/r.width-.5,y=(e.clientY-r.top)/r.height-.5;
+      el.style.transform='rotateX('+(-y*5)+'deg) rotateY('+(x*7)+'deg) translateZ(0)';
+    });
+    el.addEventListener('pointerleave',function(){el.style.transform='';});
+  });
+  /* magnetic buttons */
+  Array.prototype.forEach.call(document.querySelectorAll('.cta-row .btn, form .btn'),function(b){
+    b.addEventListener('pointermove',function(e){
+      if(reduce) return;
+      var r=b.getBoundingClientRect();
+      b.style.transform='translate('+((e.clientX-r.left-r.width/2)*.12)+'px,'+((e.clientY-r.top-r.height/2)*.25)+'px)';
+    });
+    b.addEventListener('pointerleave',function(){b.style.transform='';});
+  });
+
+  /* ---------- three.js ---------- */
+  var canvas = document.getElementById('gl');
+  var renderer;
+  try{
+    if(!window.THREE) throw new Error('no three');
+    renderer = new THREE.WebGLRenderer({canvas:canvas,antialias:true,alpha:true,powerPreference:'high-performance'});
+  }catch(err){
+    document.documentElement.classList.add('no-gl');
+    uiOnly();
+    return;
+  }
+  renderer.setClearColor(0x000000,0);
+  var scene = new THREE.Scene();
+  var camera = new THREE.PerspectiveCamera(48,1,0.1,100);
+  camera.position.set(0,0,8);
+
+  var N = 7000;
+  var seed = 7;
+  function rnd(){seed|=0;seed=seed+0x6D2B79F5|0;var t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;}
+
+  function sphere(R,ringShare){
+    var a=new Float32Array(N*3);
+    for(var i=0;i<N;i++){
+      var x,y,z;
+      if(ringShare && i%7===0){
+        var th=rnd()*Math.PI*2, rr=R*1.45+ (rnd()-.5)*.12;
+        x=Math.cos(th)*rr; y=(rnd()-.5)*.1; z=Math.sin(th)*rr;
+        var tx=x*Math.cos(.5)-y*Math.sin(.5); y=x*Math.sin(.5)+y*Math.cos(.5); x=tx;
+      }else{
+        var u=rnd()*2-1, p=rnd()*Math.PI*2, s=Math.sqrt(1-u*u), rad=R*(1+(rnd()-.5)*.03);
+        x=s*Math.cos(p)*rad; y=u*rad; z=s*Math.sin(p)*rad;
+      }
+      a[i*3]=x;a[i*3+1]=y;a[i*3+2]=z;
+    }
+    return a;
+  }
+  function web(){
+    var a=new Float32Array(N*3);
+    var frames=[[-0.7,0.35,-0.9,3.4,2.3],[0,0,0,3.4,2.3],[0.7,-0.35,0.9,3.4,2.3]];
+    for(var i=0;i<N;i++){
+      var f=frames[i%3], w=f[3], h=f[4], x,y;
+      var m=rnd();
+      if(m<.5){ var side=rnd()*(2*w+2*h), px; if(side<w){x=side-w/2;y=h/2;}else if(side<w+h){x=w/2;y=h/2-(side-w);}else if(side<2*w+h){x=w/2-(side-w-h);y=-h/2;}else{x=-w/2;y=-h/2+(side-2*w-h);} }
+      else if(m<.62){ x=(rnd()-.5)*w; y=h/2-.32; }
+      else { x=(rnd()-.5)*w*.92; y=(rnd()-.5)*(h-.7)-.15; if(rnd()<.55){ x=Math.round(x*3)/3; y=Math.round(y*3)/3; } }
+      a[i*3]=x+f[0]; a[i*3+1]=y+f[1]; a[i*3+2]=f[2];
+    }
+    return a;
+  }
+  function phone(){
+    var a=new Float32Array(N*3), W=1.45,H=2.9,D=.24;
+    var areas=[W*H,W*H,H*D,H*D,W*D,W*D], tot=areas.reduce(function(s,v){return s+v;},0);
+    for(var i=0;i<N;i++){
+      var r=rnd()*tot,f=0; while(f<5 && r>areas[f]){r-=areas[f];f++;}
+      var u=rnd()-.5,v=rnd()-.5,x,y,z;
+      if(f<2){x=u*W;y=v*H;z=(f?-1:1)*D/2; if(f===0 && rnd()<.55){x=u*W*.84;y=v*H*.88;} }
+      else if(f<4){x=(f===2?-1:1)*W/2;y=v*H;z=u*D;}
+      else{x=u*W;y=(f===4?-1:1)*H/2;z=v*D;}
+      a[i*3]=x;a[i*3+1]=y;a[i*3+2]=z;
+    }
+    return a;
+  }
+  function bot(){
+    var a=new Float32Array(N*3);
+    for(var i=0;i<N;i++){
+      var m=rnd(),x,y,z;
+      if(m<.66){
+        var W=2.5,H=2,D=1.8, ar=[W*H,W*H,H*D,H*D,W*D,W*D], tot=ar.reduce(function(s,v){return s+v;},0), r=rnd()*tot,f=0;
+        while(f<5&&r>ar[f]){r-=ar[f];f++;}
+        var u=rnd()-.5,v=rnd()-.5;
+        if(f<2){x=u*W;y=v*H;z=(f?-1:1)*D/2;}else if(f<4){x=(f===2?-1:1)*W/2;y=v*H;z=u*D;}else{x=u*W;y=(f===4?-1:1)*H/2;z=v*D;}
+        y+=-.2;
+      }else if(m<.82){
+        var side=i%2?1:-1, th=rnd()*Math.PI*2, rr=.34+(rnd()<.5?0:rnd()*.12);
+        x=side*.62+Math.cos(th)*rr*(rnd()<.5?1:rnd()); y=.1+Math.sin(th)*rr*(rnd()<.5?1:rnd()); z=.92;
+      }else if(m<.9){
+        x=(rnd()-.5)*1.1; y=-.85+Math.floor(rnd()*3)*.12; z=.92;
+      }else{
+        var t=rnd(); x=0; y=.8+t*.9; z=0; if(rnd()<.18){var q=rnd()*Math.PI*2;x=Math.cos(q)*.12;z=Math.sin(q)*.12;y=1.75+Math.sin(q)*.12;}
+      }
+      a[i*3]=x;a[i*3+1]=y;a[i*3+2]=z;
+    }
+    return a;
+  }
+  function gear(){
+    var a=new Float32Array(N*3), R=1.75, r=.42, teeth=12;
+    for(var i=0;i<N;i++){
+      var x,y,z;
+      if(i%6===0){
+        var th=rnd()*Math.PI*2, rr=rnd()*.55;
+        x=Math.cos(th)*rr;y=Math.sin(th)*rr;z=(rnd()-.5)*.5;
+      }else{
+        var th2=rnd()*Math.PI*2, ph=rnd()*Math.PI*2;
+        var s=Math.sin(th2*teeth), tooth=1/(1+Math.exp(-s*9))*.42;
+        var rad=R+tooth+Math.cos(ph)*r;
+        x=rad*Math.cos(th2);y=rad*Math.sin(th2);z=Math.sin(ph)*r*.9;
+      }
+      a[i*3]=x;a[i*3+1]=y;a[i*3+2]=z;
+    }
+    return a;
+  }
+  function helix(){
+    var a=new Float32Array(N*3);
+    for(var i=0;i<N;i++){
+      var t=rnd()*2-1, ang=t*Math.PI*3.2, rad=1.15, x,y,z, m=rnd();
+      y=t*2.7;
+      if(m<.8){var strand=i%2?0:Math.PI; x=Math.cos(ang+strand)*rad+(rnd()-.5)*.08; z=Math.sin(ang+strand)*rad+(rnd()-.5)*.08;}
+      else{var k=Math.round(t*14)/14, ang2=k*Math.PI*3.2, mix=rnd()*2-1; y=k*2.7; x=Math.cos(ang2)*rad*mix; z=Math.sin(ang2)*rad*mix;}
+      a[i*3]=x;a[i*3+1]=y;a[i*3+2]=z;
+    }
+    return a;
+  }
+  var shapes = [ sphere(2.0,true), web(), phone(), bot(), gear(), helix(), sphere(1.45,false) ];
+  var S = shapes.length;
+
+  var geo = new THREE.BufferGeometry();
+  var pos = new Float32Array(shapes[0]);
+  geo.setAttribute('position', new THREE.BufferAttribute(pos,3));
+  var col = new Float32Array(N*3), delay = new Float32Array(N), swirl = new Float32Array(N*3);
+  var c1 = new THREE.Color(0x6ee7d4), c2 = new THREE.Color(0xffb072), c3 = new THREE.Color(0xe9ecf1), tmp = new THREE.Color();
+  for(var i=0;i<N;i++){
+    var h = rnd();
+    tmp.copy(c1).lerp(c2, Math.pow(h,2.2)*.85);
+    if(rnd()<.08) tmp.lerp(c3,.7);
+    col[i*3]=tmp.r;col[i*3+1]=tmp.g;col[i*3+2]=tmp.b;
+    delay[i]=rnd();
+    swirl[i*3]=(rnd()-.5)*2.6;swirl[i*3+1]=(rnd()-.5)*2.6;swirl[i*3+2]=(rnd()-.5)*2.6;
+  }
+  geo.setAttribute('color', new THREE.BufferAttribute(col,3));
+
+  function sprite(){
+    var c=document.createElement('canvas'); c.width=c.height=64; var g=c.getContext('2d');
+    var gr=g.createRadialGradient(32,32,0,32,32,32);
+    gr.addColorStop(0,'rgba(255,255,255,1)');gr.addColorStop(.35,'rgba(255,255,255,.55)');gr.addColorStop(1,'rgba(255,255,255,0)');
+    g.fillStyle=gr;g.fillRect(0,0,64,64);
+    return new THREE.CanvasTexture(c);
+  }
+  var tex = sprite();
+  var mat = new THREE.PointsMaterial({size:.055,map:tex,vertexColors:true,transparent:true,opacity:.95,depthWrite:false,blending:THREE.AdditiveBlending,sizeAttenuation:true});
+  var pts = new THREE.Points(geo,mat);
+  var group = new THREE.Group();
+  group.add(pts);
+
+  /* orbit rings */
+  function ring(r,op){
+    var g=new THREE.BufferGeometry(), arr=[]; for(var k=0;k<=160;k++){var t=k/160*Math.PI*2;arr.push(Math.cos(t)*r,0,Math.sin(t)*r);}
+    g.setAttribute('position',new THREE.Float32BufferAttribute(arr,3));
+    return new THREE.Line(g,new THREE.LineBasicMaterial({color:0x6ee7d4,transparent:true,opacity:op,blending:THREE.AdditiveBlending,depthWrite:false}));
+  }
+  var ringA = ring(3.6,.22), ringB = ring(4.4,.12);
+  group.add(ringA); group.add(ringB);
+  scene.add(group);
+
+  /* distant stars */
+  var sg = new THREE.BufferGeometry(), sp = new Float32Array(900*3);
+  for(var s=0;s<900;s++){var rr=14+rnd()*26,u=rnd()*2-1,p=rnd()*Math.PI*2,q=Math.sqrt(1-u*u);sp[s*3]=q*Math.cos(p)*rr;sp[s*3+1]=u*rr;sp[s*3+2]=q*Math.sin(p)*rr-6;}
+  sg.setAttribute('position',new THREE.BufferAttribute(sp,3));
+  var stars = new THREE.Points(sg,new THREE.PointsMaterial({size:.09,map:tex,color:0x9fb4c8,transparent:true,opacity:.55,depthWrite:false,sizeAttenuation:true}));
+  scene.add(stars);
+
+  var W=0,H=0,narrow=false;
+  function resize(){
+    W=window.innerWidth;H=window.innerHeight;narrow=W<=900;
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+    renderer.setSize(W,H,false);
+    camera.aspect=W/H;camera.updateProjectionMatrix();
+    mat.size = narrow?.06:.055;
+    mat.opacity = narrow?.55:.95;
+    measure();
+  }
+  var centers=[];
+  function measure(){
+    var sy=window.scrollY||0;
+    centers = panels.map(function(p){var r=p.getBoundingClientRect();return r.top+sy+r.height/2;});
+  }
+  function targetProg(){
+    var c=(window.scrollY||0)+H*.5, n=centers.length;
+    if(c<=centers[0]) return 0;
+    if(c>=centers[n-1]) return n-1;
+    for(var i=0;i<n-1;i++){
+      if(c<centers[i+1]){
+        var f=(c-centers[i])/(centers[i+1]-centers[i]);
+        return i+ease(clamp((f-.22)/.56,0,1));
+      }
+    }
+    return n-1;
+  }
+
+  var mx=0,my=0,smx=0,smy=0;
+  window.addEventListener('pointermove',function(e){mx=e.clientX/W-.5;my=e.clientY/H-.5;},{passive:true});
+  window.addEventListener('resize',resize);
+  window.addEventListener('load',measure);
+  if(document.fonts&&document.fonts.ready) document.fonts.ready.then(measure);
+
+  var prog=0, lastActive=-1, clock=new THREE.Clock(), docH=1;
+  resize();
+  prog = targetProg();
+
+  function updateMorph(p, time){
+    var i=Math.min(Math.floor(p),S-2), t=p-i;
+    var A=shapes[i], B=shapes[i+1], mid=Math.sin(t*Math.PI);
+    var breathe = reduce?1:1+Math.sin(time*.9)*.012;
+    for(var k=0;k<N;k++){
+      var tt=clamp(t*1.55-delay[k]*.55,0,1); tt=tt*tt*(3-2*tt);
+      var k3=k*3, w=mid*mid;
+      pos[k3]  =((A[k3]  +(B[k3]  -A[k3])  *tt)+swirl[k3]  *w)*breathe;
+      pos[k3+1]=((A[k3+1]+(B[k3+1]-A[k3+1])*tt)+swirl[k3+1]*w)*breathe;
+      pos[k3+2]=((A[k3+2]+(B[k3+2]-A[k3+2])*tt)+swirl[k3+2]*w)*breathe;
+    }
+    geo.attributes.position.needsUpdate=true;
+    return {i:i,t:t,mid:mid};
+  }
+
+  function frame(){
+    requestAnimationFrame(frame);
+    var time=clock.getElapsedTime();
+    var tp=targetProg();
+    prog += (tp-prog)*(reduce?1:.075);
+    var m=updateMorph(prog,time);
+
+    smx+=(mx-smx)*.06; smy+=(my-smy)*.06;
+    var xScale = narrow?0:2.35;
+    var xa=xs[m.i]*xScale, xb=xs[Math.min(m.i+1,xs.length-1)]*xScale;
+    var gx=xa+(xb-xa)*ease(m.t);
+    var sc = narrow?.72:1;
+    group.position.x += (gx-group.position.x)*.2;
+    group.position.y = narrow? 0.9 : 0;
+    group.scale.setScalar(sc);
+    var spin = reduce?0:Math.sin(time*.28)*.5;
+    group.rotation.y = spin + smx*.6 + prog*.35;
+    group.rotation.x = .12 + smy*.3 + m.mid*.25;
+    group.rotation.z = Math.sin(prog*.9)*.08;
+    ringA.rotation.set(prog*.5+.9, time*.1, prog*.3);
+    ringB.rotation.set(-prog*.4+.3, -time*.07, .6+prog*.2);
+    stars.rotation.y = prog*.12 + time*.005;
+    camera.position.z = 8 - m.mid*1.1;
+    camera.position.y = smy*-.3;
+    camera.lookAt(0,0,0);
+    renderer.render(scene,camera);
+    ui(prog);
+  }
+
+  function ui(p){
+    var sy=window.scrollY||0; docH=Math.max(1,document.documentElement.scrollHeight-H);
+    bar.style.transform='scaleX('+clamp(sy/docH,0,1)+')';
+    var a=Math.round(p);
+    if(a!==lastActive){
+      lastActive=a;
+      dotEls.forEach(function(d,k){d.classList.toggle('on',k===a);});
+    }
+    for(var k=0;k<copies.length;k++){
+      var r=copies[k].getBoundingClientRect(), cy=r.top+r.height/2, d=Math.abs(cy-H/2)/H;
+      var o=clamp(1-Math.max(0,d-.3)*2.4,.18,1);
+      var off=clamp((cy-H/2)/H,-1,1)*28;
+      if(reduce){o=1;off=0;}
+      copies[k].style.opacity=o.toFixed(3);
+      copies[k].style.transform='translate3d(0,'+off.toFixed(1)+'px,0)';
+    }
+  }
+  frame();
+
+  function uiOnly(){
+    function loop(){ ui2(); requestAnimationFrame(loop); }
+    function ui2(){
+      var sy=window.scrollY||0,h=window.innerHeight,dh=Math.max(1,document.documentElement.scrollHeight-h);
+      bar.style.transform='scaleX('+clamp(sy/dh,0,1)+')';
+    }
+    loop();
+  }
+})();
+</script>
+
+</body></html>
